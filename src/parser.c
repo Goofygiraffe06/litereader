@@ -62,26 +62,31 @@ database_t* parse_database(const char *filename) {
         return NULL;
     }
 
-    // parse page 1 (starts at 0x64)
-    uint8_t page_buffer[12];
-    lseek(fd, 0x64, SEEK_SET);
-    if (read(fd, page_buffer, 12) != 12) {
-        perror("read");
-        close(fd);
-        free(db->page_headers);
-        free(db);
-        return NULL;
-    }
+    // parse all page headers
+    for (uint32_t i = 0; i < page_count; i++) {
+        size_t page_offset = (i == 0) ? 0x64 : (db->header.page_size * i);
 
-    db->page_headers[0].page_type = page_buffer[OFFSET_BTREE_PAGE_TYPE];
-    db->page_headers[0].first_freeblock = read_be16(page_buffer + OFFSET_BTREE_FIRST_FREEBLOCK);
-    db->page_headers[0].cell_count = read_be16(page_buffer + OFFSET_BTREE_CELL_COUNT);
-    db->page_headers[0].cell_content_start = read_be16(page_buffer + OFFSET_BTREE_CELL_CONTENT_START);
-    db->page_headers[0].fragmented_free_bytes = page_buffer[OFFSET_BTREE_FRAG_FREE_BYTES];
+        lseek(fd, page_offset, SEEK_SET);
 
-    if (db->page_headers[0].page_type == PAGE_TYPE_INTERIOR_INDEX ||
-        db->page_headers[0].page_type == PAGE_TYPE_INTERIOR_TABLE) {
-        db->page_headers[0].rightmost_pointer = read_be32(page_buffer + OFFSET_BTREE_RIGHTMOST_POINTER);
+        uint8_t page_buffer[12];
+        if (read(fd, page_buffer, 12) != 12) {
+            perror("read");
+            close(fd);
+            free(db->page_headers);
+            free(db);
+            return NULL;
+        }
+
+        db->page_headers[i].page_type = page_buffer[OFFSET_BTREE_PAGE_TYPE];
+        db->page_headers[i].first_freeblock = read_be16(page_buffer + OFFSET_BTREE_FIRST_FREEBLOCK);
+        db->page_headers[i].cell_count = read_be16(page_buffer + OFFSET_BTREE_CELL_COUNT);
+        db->page_headers[i].cell_content_start = read_be16(page_buffer + OFFSET_BTREE_CELL_CONTENT_START);
+        db->page_headers[i].fragmented_free_bytes = page_buffer[OFFSET_BTREE_FRAG_FREE_BYTES];
+
+        if (db->page_headers[i].page_type == PAGE_TYPE_INTERIOR_INDEX ||
+            db->page_headers[i].page_type == PAGE_TYPE_INTERIOR_TABLE) {
+            db->page_headers[i].rightmost_pointer = read_be32(page_buffer + OFFSET_BTREE_RIGHTMOST_POINTER);
+        }
     }
 
     close(fd);

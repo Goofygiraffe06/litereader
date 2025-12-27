@@ -73,7 +73,10 @@ int main(int argc, char **argv) {
     }
     
     print_db_header(&db->header);
-    print_page_header(&db->page_headers[0], 1); // printing only the first page
+
+    for (uint32_t i = 0; i < db->header.header_db_size; i++) {
+        print_page_header(&db->page_headers[i], i + 1);
+    }
 
     free_database(db);
     return 0;
