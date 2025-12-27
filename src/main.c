@@ -3,7 +3,7 @@
 #include "../include/parser.h"
 #include "../include/constants.h"
 
-void print_header(db_header_t *header) {
+void print_db_header(db_header_t *header) {
     printf("magic: ");
     for (int i = 0; i < 16; i++) {
         printf("%02x ", header->magic[i]);
@@ -40,26 +40,41 @@ void print_header(db_header_t *header) {
     printf("sqlite version number: %u\n", header->sqlite_version_number);
 }
 
+void print_page_header(btree_page_header_t *page, int page_num) {
+    printf("\n=== Page %d Header ===\n", page_num);
+    printf("page type: 0x%02x\n", page->page_type);
+    printf("first freeblock: %u\n", page->first_freeblock);
+    printf("cell count: %u\n", page->cell_count);
+    printf("cell content start: %u\n", page->cell_content_start);
+    printf("fragmented free bytes: %u\n", page->fragmented_free_bytes);
+    
+    if (page->page_type == PAGE_TYPE_INTERIOR_INDEX || 
+        page->page_type == PAGE_TYPE_INTERIOR_TABLE) {
+        printf("rightmost pointer: %u\n", page->rightmost_pointer);
+    }
+}
+
 int main(int argc, char **argv) {
     if (argc != 2) {
         printf("usage: %s <file.db>\n", argv[0]);
         return 1;
     }
     
-    db_header_t *header = parse_header(argv[1]);
-    if (!header) {
-        printf("failed to parse header\n");
+    database_t *db = parse_database(argv[1]);
+    if (!db) {
+        printf("failed to parse database\n");
         return 1;
     }
     
-    if (memcmp(header->magic, SQLITE_MAGIC, 16) != 0) {
+    if (memcmp(db->header.magic, SQLITE_MAGIC, 16) != 0) {
         printf("invalid sqlite file\n");
-        free_header(header);
+        free_database(db);
         return 1;
     }
     
-    print_header(header);
-    
-    free_header(header);
+    print_db_header(&db->header);
+    print_page_header(&db->page_headers[0], 1); // printing only the first page
+
+    free_database(db);
     return 0;
 }
