@@ -44,7 +44,7 @@ typedef struct {
 // complete database structure
 typedef struct {
   db_header_t header;
-  btree_page_header_t btree_header;
+  btree_page_header_t *pages;
 } database_t;
 
 #endif
