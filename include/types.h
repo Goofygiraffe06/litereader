@@ -41,4 +41,10 @@ typedef struct {
                                       // only and is omitted from all other pages.
 } btree_page_header_t;
 
+// complete database structure
+typedef struct {
+  db_header_t header;
+  btree_page_header_t btree_header;
+} database_t;
+
 #endif
