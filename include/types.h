@@ -30,4 +30,15 @@ typedef struct {
   uint32_t sqlite_version_number;
 } db_header_t;
 
+// b-tree header section
+typedef struct {
+  uint8_t page_type;
+  uint16_t first_freeblock;           // if zero, no free blocks
+  uint16_t cell_count;
+  uint16_t cell_content_start;        // if zero, value interpreted as 65536
+  uint8_t fragmented_free_bytes;
+  uint32_t rightmost_pointer;         // appears in the header of interior b-tree pages 
+                                      // only and is omitted from all other pages.
+} btree_page_header_t;
+
 #endif
