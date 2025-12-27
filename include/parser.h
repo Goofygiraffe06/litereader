@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-db_header_t* parse_header(const char *filename);
-void free_header(db_header_t *header);
+database_t* parse_database(const char *filename);
+void free_database(database_t  *db);
 
 #endif
