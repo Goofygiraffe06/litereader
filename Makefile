@@ -9,4 +9,4 @@ clean:
 	rm -f bin/litereader
 
 test: liteparser
-	bin/litereader /tests/db/test.db
+	bin/litereader tests/db/test.db
