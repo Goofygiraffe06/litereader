@@ -39,6 +39,7 @@ typedef struct {
   uint8_t fragmented_free_bytes;
   uint32_t rightmost_pointer;         // appears in the header of interior b-tree pages 
                                       // only and is omitted from all other pages.
+  uint16_t *cell_pointers;
 } btree_page_header_t;
 
 // complete database structure
