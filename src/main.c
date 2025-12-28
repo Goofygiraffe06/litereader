@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "../include/parser.h"
+#include "../include/cell.h"
 #include "../include/constants.h"
 
 void print_db_header(db_header_t *header) {
@@ -9,7 +10,6 @@ void print_db_header(db_header_t *header) {
         printf("%02x ", header->magic[i]);
     }
     printf("\n");
-    
     printf("page size: %u\n", header->page_size);
     printf("file format write: %u\n", header->file_format_write);
     printf("file format read: %u\n", header->file_format_read);
@@ -29,13 +29,11 @@ void print_db_header(db_header_t *header) {
     printf("user version: %u\n", header->user_version);
     printf("incremental vacuum mode: %u\n", header->incremental_version_mode);
     printf("application id: %u\n", header->application_id);
-    
     printf("reserved expansion: ");
     for (int i = 0; i < 20; i++) {
         printf("%02x ", header->reserved_expansion[i]);
     }
     printf("\n");
-    
     printf("version valid for: %u\n", header->version_valid_for);
     printf("sqlite version number: %u\n", header->sqlite_version_number);
 }
@@ -53,7 +51,6 @@ void print_page_header(btree_page_header_t *page, int page_num) {
         printf("rightmost pointer: %u\n", page->rightmost_pointer);
     }
     
-    // print cell pointers
     if (page->cell_count > 0 && page->cell_pointers) {
         printf("cell pointers: ");
         for (uint16_t i = 0; i < page->cell_count; i++) {
@@ -82,11 +79,24 @@ int main(int argc, char **argv) {
     }
     
     print_db_header(&db->header);
-
+    
+    // parse and print all pages
     for (uint32_t i = 0; i < db->header.header_db_size; i++) {
         print_page_header(&db->page_headers[i], i + 1);
+        
+        // parse cells for leaf table pages
+        if (db->page_headers[i].page_type == PAGE_TYPE_LEAF_TABLE) {
+            printf("\nCells:\n");
+            
+            size_t page_offset = (i == 0) ? 0x64 : (db->header.page_size * i);
+            uint8_t *page_data = (uint8_t *)db->file_data + page_offset;
+            
+            for (uint16_t j = 0; j < db->page_headers[i].cell_count; j++) {
+                parse_cell(page_data, db->page_headers[i].cell_pointers[j]);
+            }
+        }
     }
-
+    
     free_database(db);
     return 0;
 }
