@@ -72,6 +72,9 @@ database_t* parse_database(const char *filename) {
         if (read(fd, page_buffer, 12) != 12) {
             perror("read");
             close(fd);
+            for (uint32_t k = 0; k < i; k++) {
+                free(db->page_headers[k].cell_pointers);
+            }
             free(db->page_headers);
             free(db);
             return NULL;
@@ -87,6 +90,44 @@ database_t* parse_database(const char *filename) {
             db->page_headers[i].page_type == PAGE_TYPE_INTERIOR_TABLE) {
             db->page_headers[i].rightmost_pointer = read_be32(page_buffer + OFFSET_BTREE_RIGHTMOST_POINTER);
         }
+
+        // allocate and parse cell pointers
+        if (db->page_headers[i].cell_count > 0) {
+            db->page_headers[i].cell_pointers = malloc(sizeof(uint16_t) * db->page_headers[i].cell_count);
+            if (!db->page_headers[i].cell_pointers) {
+                close(fd);
+                for (uint32_t k = 0; k < i; k++) {
+                    free(db->page_headers[k].cell_pointers);
+                }
+                free(db->page_headers);
+                free(db);
+                return NULL;
+            }
+
+            // cell pointer array starts after page header
+            uint8_t header_size = (db->page_headers[i].page_type == PAGE_TYPE_INTERIOR_INDEX ||
+                                   db->page_headers[i].page_type == PAGE_TYPE_INTERIOR_TABLE) ? 12 : 8;
+
+            size_t cell_ptr_array_offset = page_offset + header_size;
+            lseek(fd, cell_ptr_array_offset, SEEK_SET);
+
+            for (uint16_t j = 0; j < db->page_headers[i].cell_count; j++) {
+                uint8_t ptr_buffer[2];
+                if (read(fd, ptr_buffer, 2) != 2) {
+                    perror("read");
+                    close(fd);
+                    for (uint32_t k = 0; k <= i; k++) {
+                        free(db->page_headers[k].cell_pointers);
+                    }
+                    free(db->page_headers);
+                    free(db);
+                    return NULL;
+                }
+                db->page_headers[i].cell_pointers[j] = read_be16(ptr_buffer);
+            }
+        } else {
+            db->page_headers[i].cell_pointers = NULL;
+        }
     }
 
     close(fd);
@@ -95,6 +136,11 @@ database_t* parse_database(const char *filename) {
 
 void free_database(database_t *db) {
     if (db) {
+        if (db->page_headers) {
+            for (uint32_t i = 0; i < db->header.header_db_size; i++) {
+                free(db->page_headers[i].cell_pointers);
+            }
+        }
         free(db->page_headers);
         free(db);
     }
