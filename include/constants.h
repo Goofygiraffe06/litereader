@@ -41,4 +41,32 @@
 #define PAGE_TYPE_LEAF_INDEX 0x0A
 #define PAGE_TYPE_LEAF_TABLE 0x0D
 
+// Serial Type Codes
+#define SERIAL_TYPE_NULL 0
+#define SERIAL_TYPE_INT8 1
+#define SERIAL_TYPE_INT16 2
+#define SERIAL_TYPE_INT24 3
+#define SERIAL_TYPE_INT32 4
+#define SERIAL_TYPE_INT48 5
+#define SERIAL_TYPE_INT64 6
+#define SERIAL_TYPE_FLOAT64 7
+#define SERIAL_TYPE_ZERO 8
+#define SERIAL_TYPE_ONE 9
+#define SERIAL_TYPE_INTERNAL1 10
+#define SERIAL_TYPE_INTERNAL2 11
+// N >= 12 and even: BLOB of length (N-12)/2
+// N >= 13 and odd: TEXT of length (N-13)/2
+
+// Content sizes for serial types
+#define SERIAL_SIZE_NULL 0
+#define SERIAL_SIZE_INT8 1
+#define SERIAL_SIZE_INT16 2
+#define SERIAL_SIZE_INT24 3
+#define SERIAL_SIZE_INT32 4
+#define SERIAL_SIZE_INT48 6
+#define SERIAL_SIZE_INT64 8
+#define SERIAL_SIZE_FLOAT64 8
+#define SERIAL_SIZE_ZERO 0
+#define SERIAL_SIZE_ONE 0
+
 #endif
