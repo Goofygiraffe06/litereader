@@ -48,9 +48,18 @@ void print_page_header(btree_page_header_t *page, int page_num) {
     printf("cell content start: %u\n", page->cell_content_start);
     printf("fragmented free bytes: %u\n", page->fragmented_free_bytes);
     
-    if (page->page_type == PAGE_TYPE_INTERIOR_INDEX || 
+    if (page->page_type == PAGE_TYPE_INTERIOR_INDEX ||
         page->page_type == PAGE_TYPE_INTERIOR_TABLE) {
         printf("rightmost pointer: %u\n", page->rightmost_pointer);
+    }
+    
+    // print cell pointers
+    if (page->cell_count > 0 && page->cell_pointers) {
+        printf("cell pointers: ");
+        for (uint16_t i = 0; i < page->cell_count; i++) {
+            printf("%u ", page->cell_pointers[i]);
+        }
+        printf("\n");
     }
 }
 
