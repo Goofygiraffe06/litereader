@@ -77,15 +77,28 @@ int parse_cell(uint8_t *page_data, uint16_t cell_offset, size_t page_size) {
     }
     offset += bytes_read;
     
-    // Use dynamic allocation to prevent stack buffer overflow
-    uint64_t *serial_types = malloc(sizeof(uint64_t) * 1024);
+    // Use dynamic allocation with reallocation as needed
+    size_t capacity = 16;  // Start small
+    uint64_t *serial_types = malloc(sizeof(uint64_t) * capacity);
     if (!serial_types) {
         return -1;
     }
     
     size_t col_count = 0;
     
-    while (offset < header_start + header_size && col_count < 1024 && offset < remaining) {
+    while (offset < header_start + header_size && offset < remaining) {
+        // Reallocate if needed
+        if (col_count >= capacity) {
+            size_t new_capacity = capacity * 2;
+            uint64_t *new_serial_types = realloc(serial_types, sizeof(uint64_t) * new_capacity);
+            if (!new_serial_types) {
+                free(serial_types);
+                return -1;
+            }
+            serial_types = new_serial_types;
+            capacity = new_capacity;
+        }
+        
         serial_types[col_count] = read_varint(cell + offset, &bytes_read, remaining - offset);
         if (bytes_read == 0) break;
         offset += bytes_read;
