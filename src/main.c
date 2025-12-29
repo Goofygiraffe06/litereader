@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
             uint8_t *page_data = (uint8_t *)db->file_data + page_offset;
             
             for (uint16_t j = 0; j < db->page_headers[i].cell_count; j++) {
-                parse_cell(page_data, db->page_headers[i].cell_pointers[j]);
+                parse_cell(page_data, db->page_headers[i].cell_pointers[j], db->header.page_size);
             }
         }
     }

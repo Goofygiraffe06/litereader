@@ -81,6 +81,19 @@ database_t* parse_database(const char *filename) {
     // parse all page headers
     for (uint32_t i = 0; i < page_count; i++) {
         size_t page_offset = (i == 0) ? 0x64 : (db->header.page_size * i);
+        
+        // Validate page offset
+        if (page_offset >= (size_t)st.st_size || page_offset + db->header.page_size > (size_t)st.st_size) {
+            fprintf(stderr, "Error: page %u offset out of bounds\n", i);
+            for (uint32_t k = 0; k < i; k++) {
+                free(db->page_headers[k].cell_pointers);
+            }
+            free(db->page_headers);
+            munmap(file_data, st.st_size);
+            free(db);
+            return NULL;
+        }
+        
         uint8_t *page_ptr = (uint8_t *)file_data + page_offset;
 
         db->page_headers[i].page_type = page_ptr[OFFSET_BTREE_PAGE_TYPE];
