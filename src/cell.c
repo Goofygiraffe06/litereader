@@ -45,26 +45,49 @@ static int64_t read_int_value(uint8_t *data, size_t size) {
     return value;
 }
 
-void parse_cell(uint8_t *page_data, uint16_t cell_offset) {
+int parse_cell(uint8_t *page_data, uint16_t cell_offset, size_t page_size) {
+    if (cell_offset >= page_size) {
+        return -1;
+    }
+    
     uint8_t *cell = page_data + cell_offset;
     size_t offset = 0;
     size_t bytes_read;
+    size_t remaining = page_size - cell_offset;
     
-    read_varint(cell + offset, &bytes_read);
+    if (remaining < 1) return -1;
+    read_varint(cell + offset, &bytes_read, remaining - offset);
+    if (bytes_read == 0) {
+        return -1;
+    }
     offset += bytes_read;
     
-    uint64_t rowid = read_varint(cell + offset, &bytes_read);
+    if (remaining < offset + 1) return -1;
+    uint64_t rowid = read_varint(cell + offset, &bytes_read, remaining - offset);
+    if (bytes_read == 0) {
+        return -1;
+    }
     offset += bytes_read;
     
+    if (remaining < offset + 1) return -1;
     size_t header_start = offset;
-    uint64_t header_size = read_varint(cell + offset, &bytes_read);
+    uint64_t header_size = read_varint(cell + offset, &bytes_read, remaining - offset);
+    if (bytes_read == 0 || header_size > remaining - offset) {
+        return -1;
+    }
     offset += bytes_read;
     
-    uint64_t serial_types[128];
+    // Use dynamic allocation to prevent stack buffer overflow
+    uint64_t *serial_types = malloc(sizeof(uint64_t) * 1024);
+    if (!serial_types) {
+        return -1;
+    }
+    
     size_t col_count = 0;
     
-    while (offset < header_start + header_size && col_count < 128) {
-        serial_types[col_count] = read_varint(cell + offset, &bytes_read);
+    while (offset < header_start + header_size && col_count < 1024 && offset < remaining) {
+        serial_types[col_count] = read_varint(cell + offset, &bytes_read, remaining - offset);
+        if (bytes_read == 0) break;
         offset += bytes_read;
         col_count++;
     }
@@ -78,6 +101,11 @@ void parse_cell(uint8_t *page_data, uint16_t cell_offset) {
         size_t content_size = get_serial_content_size(serial_type);
         
         if (i > 0) printf(", ");
+        
+        if (offset + content_size > remaining) {
+            printf("(truncated)");
+            break;
+        }
         
         if (serial_type == SERIAL_TYPE_NULL) {
             printf("NULL");
@@ -107,5 +135,7 @@ void parse_cell(uint8_t *page_data, uint16_t cell_offset) {
         }
     }
     
+    free(serial_types);
     printf("\n");
+    return 0;
 }
