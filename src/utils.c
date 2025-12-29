@@ -13,6 +13,11 @@ uint64_t read_varint(uint8_t *data, size_t *bytes_read, size_t max_len) {
     int limit = (max_len < 9) ? max_len : 9;
     
     for (int i = 0; i < limit; i++) {
+        if (i == 8) {
+            result = (result << 8) | data[i];
+            *bytes_read = 9;
+            return result;
+        }
         result = (result << 7) | (data[i] & 0x7F);
         if ((data[i] & 0x80) == 0) {
             *bytes_read = i + 1;
