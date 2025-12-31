@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     
-    //print_db_header(&db->header);
+    print_db_header(&db->header);
     
     // parse and print schema
     schema_t *schema = parse_schema(db);
@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
     
     // parse and print all pages
     for (uint32_t i = 0; i < db->header.header_db_size; i++) {
-        //print_page_header(&db->page_headers[i], i + 1);
+        print_page_header(&db->page_headers[i], i + 1);
         
         // parse cells for leaf table pages
         if (db->page_headers[i].page_type == PAGE_TYPE_LEAF_TABLE) {
