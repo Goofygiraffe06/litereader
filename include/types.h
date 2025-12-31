@@ -50,4 +50,20 @@ typedef struct {
     size_t file_size;
 } database_t;
 
+// sqlite_master row
+typedef struct {
+    char *type;         // "table", "index", "view", "trigger"
+    char *name;         // object name
+    char *tbl_name;     // associated table name
+    uint64_t rootpage;  // root page number
+    char *sql;          // CREATE statement
+} schema_entry_t;
+
+// schema table
+typedef struct {
+    schema_entry_t *entries;
+    size_t count;
+    size_t capacity;
+} schema_t;
+
 #endif
