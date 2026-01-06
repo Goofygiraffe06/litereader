@@ -1,0 +1,275 @@
+LITEREADER
+==========
+
+A lightweight, zero-dependency SQLite database file parser written in C.
+LiteReader reads and parses SQLite3 database files directly, extracting
+schema information, page structures, and cell data without requiring
+the SQLite library.
+
+
+OVERVIEW
+--------
+
+LiteReader is a standalone tool for inspecting SQLite database files at
+the binary level. It parses the file format directly using memory-mapped
+I/O, providing visibility into:
+
+  - Database header fields and configuration
+  - B-tree page structure and organization
+  - Schema table contents (tables, indexes, views, triggers)
+  - Individual cell/record data with decoded values
+
+
+FEATURES
+--------
+
+  - Direct file parsing using memory-mapped I/O (mmap)
+  - Complete database header decoding (100-byte header)
+  - B-tree page header parsing for all page types
+  - Schema extraction from sqlite_master table
+  - Cell decoding with varint and serial type support
+  - Zero external dependencies (pure C with POSIX APIs)
+  - Memory efficient design
+
+
+BUILDING
+--------
+
+Requirements:
+  - GCC compiler with C11 support
+  - Linux/Unix environment (uses POSIX APIs)
+  - GNU Make
+
+Compile:
+
+    make
+
+Or manually:
+
+    gcc -Wall -Wextra -std=c11 -o bin/litereader \
+        src/main.c src/parser.c src/cell.c src/utils.c src/schema.c
+
+Clean build:
+
+    make clean
+    make
+
+Debug build:
+
+    make CFLAGS="-Wall -Wextra -std=c11 -g -O0"
+
+
+USAGE
+-----
+
+Basic usage:
+
+    ./bin/litereader <database.db>
+
+Run with test database:
+
+    make test
+
+
+EXAMPLE OUTPUT
+--------------
+
+    magic: 53 51 4c 69 74 65 20 66 6f 72 6d 61 74 20 33 00 
+    page size: 4096
+    file format write: 1
+    file format read: 1
+    reserved space: 0
+    max embed payload frac: 64
+    min embed payload frac: 32
+    leaf payload frac: 32
+    file change counter: 3
+    database size: 2 pages
+    ...
+
+    === Database Schema ===
+
+    [1] table: users
+        table: users
+        rootpage: 2
+        sql: CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)
+
+    === Page 1 Header ===
+    page type: 0x0d
+    first freeblock: 0
+    cell count: 1
+    ...
+
+
+PROJECT STRUCTURE
+-----------------
+
+    litereader/
+    |-- bin/                    Compiled binary output
+    |   +-- litereader
+    |-- include/                Header files
+    |   |-- cell.h              Cell parsing declarations
+    |   |-- constants.h         SQLite format constants and offsets
+    |   |-- parser.h            Database parser declarations
+    |   |-- schema.h            Schema parsing declarations
+    |   |-- types.h             Data structure definitions
+    |   +-- utils.h             Utility function declarations
+    |-- src/                    Source files
+    |   |-- cell.c              Cell/record parsing implementation
+    |   |-- main.c              Entry point and output formatting
+    |   |-- parser.c            Database file parsing
+    |   |-- schema.c            Schema table parsing
+    |   +-- utils.c             Big-endian and varint utilities
+    |-- tests/                  Test databases
+    |   +-- db/
+    |       |-- bench.db        Benchmark database
+    |       +-- test.db         Test database
+    |-- docs/                   Documentation
+    |-- LICENSE                 GPL-3.0 License
+    |-- Makefile                Build configuration
+    +-- README.md               This file
+
+
+HOW IT WORKS
+------------
+
+LiteReader parses SQLite database files through the following steps:
+
+1. Memory Mapping
+   Opens the database file using mmap() for efficient random access
+   without loading the entire file into memory.
+
+2. Header Parsing
+   Reads the 100-byte database header to extract page size, text
+   encoding, schema format, and other metadata.
+
+3. Page Iteration
+   Walks through all B-tree pages, parsing the 8 or 12 byte page
+   headers and cell pointer arrays.
+
+4. Schema Extraction
+   Reads the sqlite_master table from page 1 to extract table
+   definitions, indexes, views, and triggers.
+
+5. Cell Decoding
+   For leaf table pages, decodes individual records using SQLite's
+   record format with varint encoding and serial types.
+
+
+SUPPORTED FEATURES
+------------------
+
+    Feature                     Status
+    ------------------------------------------
+    Database header parsing     Yes
+    B-tree page headers         Yes
+    Leaf table pages            Yes
+    Interior table pages        Yes
+    Varint decoding             Yes
+    Serial type decoding        Yes
+    Text values (UTF-8)         Yes
+    Integer values              Yes
+    BLOB values                 Yes
+    NULL values                 Yes
+    Index pages                 Partial
+    Overflow pages              No
+    WAL mode                    No
+    Encryption                  No
+
+
+TECHNICAL DETAILS
+-----------------
+
+SQLite File Structure:
+
+    +---------------------------+
+    | Database Header (100 B)   |  Page 1 only
+    +---------------------------+
+    | B-tree Page Header        |  8 or 12 bytes
+    +---------------------------+
+    | Cell Pointer Array        |  2 bytes per cell
+    +---------------------------+
+    | Unallocated Space         |
+    +---------------------------+
+    | Cell Content Area         |  Grows from end of page
+    +---------------------------+
+
+Page Types:
+  - 0x02: Interior index b-tree page
+  - 0x05: Interior table b-tree page
+  - 0x0a: Leaf index b-tree page
+  - 0x0d: Leaf table b-tree page
+
+Serial Types:
+  - 0: NULL
+  - 1-6: Signed integers (1-6 bytes)
+  - 7: IEEE 754 float (8 bytes)
+  - 8: Integer constant 0
+  - 9: Integer constant 1
+  - N>=12 even: BLOB of (N-12)/2 bytes
+  - N>=13 odd: TEXT of (N-13)/2 bytes
+
+
+DOCUMENTATION
+-------------
+
+    ARCHITECTURE.md         System design and component overview
+    CONTRIBUTING.md         Guidelines for contributors
+    docs/FILE_FORMAT.md     SQLite file format specification
+    docs/API.md             API reference and function documentation
+
+
+LIMITATIONS
+-----------
+
+  - Single database file only (no attached databases)
+  - No overflow page handling for large records
+  - No WAL or journal file support
+  - Read-only (no modification capabilities)
+  - Linux/Unix only (POSIX mmap requirement)
+
+
+LICENSE
+-------
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation, either version 3 of the License, or (at your
+option) any later version.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+for more details.
+
+See the LICENSE file for the complete license text.
+
+
+CONTRIBUTING
+------------
+
+Contributions are welcome. Please see CONTRIBUTING.md for guidelines on
+how to submit patches and bug reports.
+
+Areas for potential improvement:
+  - Overflow page support
+  - Index page cell parsing
+  - WAL mode support
+  - Query interface
+  - Additional output formats (JSON, CSV)
+
+
+REFERENCES
+----------
+
+  SQLite File Format:    https://www.sqlite.org/fileformat.html
+  SQLite Source:         https://sqlite.org/src
+  B-tree Documentation:  https://www.sqlite.org/btreemodule.html
+
+
+NOTE ON DOCUMENTATION
+---------------------
+
+This documentation was generated programmatically and may contain
+inaccuracies or inconsistencies with the actual implementation. Users
+are encouraged to verify critical details against the source code and
+official SQLite documentation. Corrections and improvements are welcome.
