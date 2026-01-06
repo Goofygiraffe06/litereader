@@ -92,10 +92,7 @@ int main(int argc, char **argv) {
     for (uint32_t i = 0; i < db->header.header_db_size; i++) {
         // 1. Calculate absolute start of the page
         size_t page_start = db->header.page_size * i;
-        
-        // 2. Calculate offset to B-Tree Header (Page 1 has 100-byte offset)
-        size_t btree_header_offset = page_start + ((i == 0) ? 100 : 0);
-        
+                
         btree_page_header_t *page_header = &db->page_headers[i];
         print_page_header(page_header, i + 1);
         
@@ -103,7 +100,6 @@ int main(int argc, char **argv) {
         if (page_header->page_type == PAGE_TYPE_LEAF_TABLE) {
             printf("\nCells:\n");
             
-            // FIX: Use page_start for cell calculations
             uint8_t *page_base_ptr = (uint8_t *)db->file_data + page_start;
             
             for (uint16_t j = 0; j < page_header->cell_count; j++) {
