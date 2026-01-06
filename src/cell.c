@@ -106,7 +106,7 @@ int parse_cell(uint8_t *page_data, uint16_t cell_offset, size_t page_size) {
     }
     
     // print rowid
-    printf("rowid: %lu | ", rowid);
+    printf("rowid: %llu | ", (unsigned long long)rowid);
     
     // read and print values
     for (size_t i = 0; i < col_count; i++) {
@@ -128,7 +128,7 @@ int parse_cell(uint8_t *page_data, uint16_t cell_offset, size_t page_size) {
             printf("1");
         } else if (serial_type >= SERIAL_TYPE_INT8 && serial_type <= SERIAL_TYPE_INT64) {
             int64_t value = read_int_value(cell + offset, content_size);
-            printf("%ld", value);
+            printf("%lld", (long long)value);
             offset += content_size;
         } else if (serial_type >= 13 && serial_type % 2 == 1) {
             // text
