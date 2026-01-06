@@ -203,7 +203,7 @@ void print_schema(schema_t *schema) {
                e->type ? e->type : "(null)",
                e->name ? e->name : "(null)");
         printf("    table: %s\n", e->tbl_name ? e->tbl_name : "(null)");
-        printf("    rootpage: %lu\n", e->rootpage);
+        printf("    rootpage: %llu\n", (unsigned long long)e->rootpage);
         printf("    sql: %s\n", e->sql ? e->sql : "(null)");
     }
 }
