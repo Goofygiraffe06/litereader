@@ -4,6 +4,7 @@
 #include "../include/cell.h"
 #include "../include/utils.h"
 #include "../include/constants.h"
+#include "../include/serializer.h"
 
 static size_t get_serial_content_size(uint64_t serial_type) {
     if (serial_type >= 12) {
@@ -150,5 +151,90 @@ int parse_cell(uint8_t *page_data, uint16_t cell_offset, size_t page_size) {
     
     free(serial_types);
     printf("\n");
+    return 0;
+}
+
+int parse_cell_json(uint8_t *page_data, uint16_t cell_offset, size_t page_size) {
+    if (cell_offset >= page_size) return -1;
+    
+    uint8_t *cell = page_data + cell_offset;
+    size_t offset = 0;
+    size_t bytes_read;
+    size_t remaining = page_size - cell_offset;
+    
+    if (remaining < 1) return -1;
+    read_varint(cell + offset, &bytes_read, remaining - offset);
+    if (bytes_read == 0) return -1;
+    offset += bytes_read;
+    
+    if (remaining < offset + 1) return -1;
+    uint64_t rowid = read_varint(cell + offset, &bytes_read, remaining - offset);
+    if (bytes_read == 0) return -1;
+    offset += bytes_read;
+    
+    if (remaining < offset + 1) return -1;
+    size_t header_start = offset;
+    uint64_t header_size = read_varint(cell + offset, &bytes_read, remaining - offset);
+    if (bytes_read == 0 || header_size > remaining - offset) return -1;
+    offset += bytes_read;
+    
+    size_t capacity = 16;
+    uint64_t *serial_types = malloc(sizeof(uint64_t) * capacity);
+    if (!serial_types) return -1;
+    
+    size_t col_count = 0;
+    while (offset < header_start + header_size && offset < remaining) {
+        if (col_count >= capacity) {
+            size_t new_capacity = capacity * 2;
+            uint64_t *new_serial_types = realloc(serial_types, sizeof(uint64_t) * new_capacity);
+            if (!new_serial_types) { free(serial_types); return -1; }
+            serial_types = new_serial_types;
+            capacity = new_capacity;
+        }
+        serial_types[col_count] = read_varint(cell + offset, &bytes_read, remaining - offset);
+        if (bytes_read == 0) break;
+        offset += bytes_read;
+        col_count++;
+    }
+    
+    // JSON Output
+    printf("{\"rowid\": %llu, \"values\": [", (unsigned long long)rowid);
+    
+    for (size_t i = 0; i < col_count; i++) {
+        if (i > 0) printf(", ");
+        
+        uint64_t serial_type = serial_types[i];
+        size_t content_size = get_serial_content_size(serial_type);
+        
+        if (offset + content_size > remaining) {
+            printf("\"(truncated)\"");
+            break;
+        }
+        
+        if (serial_type == SERIAL_TYPE_NULL) {
+            printf("null");
+        } else if (serial_type == SERIAL_TYPE_ZERO) {
+            printf("0");
+        } else if (serial_type == SERIAL_TYPE_ONE) {
+            printf("1");
+        } else if (serial_type >= SERIAL_TYPE_INT8 && serial_type <= SERIAL_TYPE_INT64) {
+             int64_t value = read_int_value(cell + offset, content_size);
+             printf("%lld", (long long)value);
+             offset += content_size;
+        } else if (serial_type >= 13 && serial_type % 2 == 1) {
+             json_print_text_chk(cell + offset, content_size);
+             offset += content_size;
+        } else if (serial_type >= 12 && serial_type % 2 == 0) {
+             printf("\"BLOB(%zu bytes)\"", content_size); // representing blob as string description for now 
+             offset += content_size;
+        } else {
+             printf("\"(unknown)\"");
+             offset += content_size;
+        }
+    }
+    
+    printf("]}");
+    
+    free(serial_types);
     return 0;
 }

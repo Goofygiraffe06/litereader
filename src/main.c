@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include "../include/serializer.h"
 #include "../include/parser.h"
 #include "../include/cell.h"
 #include "../include/schema.h"
@@ -62,51 +64,90 @@ void print_page_header(btree_page_header_t *page, int page_num) {
 }
 
 int main(int argc, char **argv) {
-    if (argc != 2) {
-        printf("usage: %s <file.db>\n", argv[0]);
+    if (argc < 2 || argc > 3) {
+        printf("usage: %s <file.db> [--json]\n", argv[0]);
         return 1;
     }
     
-    database_t *db = parse_database(argv[1]);
+    char *filename = argv[1];
+    int json_mode = 0;
+    
+    if (argc == 3) {
+        if (strcmp(argv[2], "--json") == 0) {
+            json_mode = 1;
+        } else if (strcmp(argv[1], "--json") == 0) {
+            json_mode = 1;
+            filename = argv[2];
+        } else {
+            printf("usage: %s <file.db> [--json]\n", argv[0]);
+            return 1;
+        }
+    }
+    
+    database_t *db = parse_database(filename);
     if (!db) {
-        printf("failed to parse database\n");
+        if (json_mode) printf("{\"error\": \"failed to parse database\"}");
+        else printf("failed to parse database\n");
         return 1;
     }
     
     if (memcmp(db->header.magic, SQLITE_MAGIC, 16) != 0) {
-        printf("invalid sqlite file\n");
+        if (json_mode) printf("{\"error\": \"invalid sqlite file\"}");
+        else printf("invalid sqlite file\n");
         free_database(db);
         return 1;
     }
     
-    print_db_header(&db->header);
-    
-    // parse and print schema
-    schema_t *schema = parse_schema(db);
-    if (schema) {
-        print_schema(schema);
-        free_schema(schema);
+    if (json_mode) {
+        printf("{\n");
+        serialize_db_header(&db->header);
+        printf(",\n");
+    } else {
+        print_db_header(&db->header);
     }
+    
+    schema_t *schema = parse_schema(db);
+    if (json_mode) {
+        serialize_schema(schema);
+        printf(",\n");
+    } else if (schema) {
+        print_schema(schema);
+    }
+    if (schema) free_schema(schema);
+    
+    if (json_mode) printf("\"pages\": [\n");
     
     // parse and print all pages
     for (uint32_t i = 0; i < db->header.header_db_size; i++) {
-        // 1. Calculate absolute start of the page
         size_t page_start = db->header.page_size * i;
-                
         btree_page_header_t *page_header = &db->page_headers[i];
-        print_page_header(page_header, i + 1);
         
-        // parse cells for leaf table pages
-        if (page_header->page_type == PAGE_TYPE_LEAF_TABLE) {
-            printf("\nCells:\n");
+        if (json_mode) {
+            if (i > 0) printf(",\n");
+            serialize_page_header(page_header, i + 1);
             
-            uint8_t *page_base_ptr = (uint8_t *)db->file_data + page_start;
-            
-            for (uint16_t j = 0; j < page_header->cell_count; j++) {
-                parse_cell(page_base_ptr, page_header->cell_pointers[j], db->header.page_size);
+            // Cells
+            if (page_header->page_type == PAGE_TYPE_LEAF_TABLE) {
+                uint8_t *page_base_ptr = (uint8_t *)db->file_data + page_start;
+                for (uint16_t j = 0; j < page_header->cell_count; j++) {
+                    if (j > 0) printf(", ");
+                    parse_cell_json(page_base_ptr, page_header->cell_pointers[j], db->header.page_size);
+                }
+            }
+            printf("]\n    }"); // End cells array and page object
+        } else {
+            print_page_header(page_header, i + 1);
+            if (page_header->page_type == PAGE_TYPE_LEAF_TABLE) {
+                printf("\nCells:\n");
+                uint8_t *page_base_ptr = (uint8_t *)db->file_data + page_start;
+                for (uint16_t j = 0; j < page_header->cell_count; j++) {
+                    parse_cell(page_base_ptr, page_header->cell_pointers[j], db->header.page_size);
+                }
             }
         }
     }
+    
+    if (json_mode) printf("\n  ]\n}"); // End pages array and root object
     
     free_database(db);
     return 0;
